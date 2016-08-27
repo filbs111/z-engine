@@ -136,29 +136,39 @@
 		//zeewolf appears to allow square to be split along either diagonal
 		//not doing this now. go for simplest possible patchwork thing
 		
-        vertices = [
-             1.0,  1.0,  0.0,
-            -1.0,  1.0,  0.0,
-             1.0, -1.0,  0.0,
-            -1.0, -1.0,  0.0,
-			
-			1.0, -3.0, 0.0,
-			-1.0, -3.0, 0.0
-        ];
+       
+		//generate grid of points
+		var vertices = [];
+		var squareVertexIndices = [];
+		var gridsize = 10;
+		var gridstep = gridsize+1;
+		for (var ii=0,idx=0;ii<gridstep;ii++){
+			for (var jj=0;jj<gridstep;jj++,idx++){
+				vertices = vertices.concat([ii*0.1,jj*0.1,0.0]);
+				console.log("test");
+			}
+		}
+		for (var ii=0,idx=0;ii<gridsize;ii++){
+			for (var jj=0;jj<gridsize;jj++,idx++){
+				squareVertexIndices = squareVertexIndices.concat([
+						idx, idx+1, idx+gridstep+1, 
+						idx, idx+gridstep, idx+gridstep+1
+						]);
+			}
+			idx++;
+		}
+		console.log("vertices:" + vertices.length);
+		
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
         squareVertexPositionBuffer.itemSize = 3;
-        squareVertexPositionBuffer.numItems = 4;
-		
+        squareVertexPositionBuffer.numItems = gridstep*gridstep;
 		
 		squareVertexIndexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, squareVertexIndexBuffer);
-        var squareVertexIndices = [
-            0, 1, 2,      1, 2, 3,  //1st square
-			2, 3, 4,      3, 4, 5,	//2nd square
-        ];
+        
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(squareVertexIndices), gl.STATIC_DRAW);
         squareVertexIndexBuffer.itemSize = 1;
-        squareVertexIndexBuffer.numItems = 12;
+        squareVertexIndexBuffer.numItems = gridsize*gridsize*6;
     }
 	
 	function setupScene() {
