@@ -140,12 +140,12 @@
 		//generate grid of points
 		var vertices = [];
 		var squareVertexIndices = [];
-		var gridsize = 10;
+		var gridsize = 15;
 		var gridstep = gridsize+1;
 		for (var ii=0,idx=0;ii<gridstep;ii++){
 			for (var jj=0;jj<gridstep;jj++,idx++){
-				vertices = vertices.concat([ii*0.1,jj*0.1,0.0]);
-				console.log("test");
+				vertices = vertices.concat([ii*0.1,jj*0.1,0.1*((ii+jj)%2)]);
+				//console.log("test");
 			}
 		}
 		for (var ii=0,idx=0;ii<gridsize;ii++){
@@ -182,10 +182,14 @@
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         mat4.identity(mvMatrix);
-        mat4.translate(mvMatrix, [0.0, 0.0, -7.0]);
+        mat4.translate(mvMatrix, [0.0, 0.0, -3.0]);
 		
 		//rotate by some amount related to current time.
-		mat4.rotateZ(mvMatrix, frameTime/10000);
+		mat4.rotateX(mvMatrix, -45);
+		mat4.rotateZ(mvMatrix, frameTime/2000);
+		
+		mat4.translate(mvMatrix, [-0.75,-0.75,0]);
+
 		
         gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
         gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, squareVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
