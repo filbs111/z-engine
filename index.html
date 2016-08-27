@@ -14,19 +14,24 @@
 		uniform sampler2D uSampler;
 
 		void main(void) {
-			gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+			gl_FragColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+			//gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
 		}
 	</script>
 
 	<!-- vertex shader -->
 	<script id="shader-vs" type="x-shader/x-vertex">
 		attribute vec3 aVertexPosition;
+		attribute vec2 aTextureCoord;
 
 		uniform mat4 uMVMatrix;
 		uniform mat4 uPMatrix;
 		
+		varying vec2 vTextureCoord;
+		
 		void main(void) {
 			gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+			vTextureCoord = aTextureCoord;
 		}
 	</script>
 	
@@ -104,9 +109,13 @@
         shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
         gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
 
+		shaderProgram.textureCoordAttribute = gl.getAttribLocation(shaderProgram, "aTextureCoord");
+        gl.enableVertexAttribArray(shaderProgram.textureCoordAttribute);
+		
 		//maybe don't need all these uniforms for 2d / ortho projection...
         shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
         shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+		shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
     }
 	
 	var mvMatrix = mat4.create();
@@ -122,8 +131,7 @@
 		squareVertexIndexBuffer;
 
     function initBuffers() {
-        squareVertexPositionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
+        
 		
 		//simplest implementation - maybe not the fastest.
 		//shared vertex for 4 terrain squares.
@@ -140,12 +148,15 @@
 		//generate grid of points
 		var vertices = [];
 		var squareVertexIndices = [];
+		var textureCoords = [];
+		
 		var gridsize = 15;
 		var gridstep = gridsize+1;
 		for (var ii=0,idx=0;ii<gridstep;ii++){
 			for (var jj=0;jj<gridstep;jj++,idx++){
-				vertices = vertices.concat([ii*0.1,jj*0.1,0.1*((ii+jj)%2)]);
-				//console.log("test");
+				vertices = vertices.concat([ii*0.1,jj*0.1,0.0]);	//0.1*((ii+jj)%2)]);
+				textureCoords = textureCoords.concat([ii/256,jj/256]);
+				//textureCoords = textureCoords.concat([0.0,0.0]);
 			}
 		}
 		for (var ii=0,idx=0;ii<gridsize;ii++){
@@ -159,13 +170,20 @@
 		}
 		console.log("vertices:" + vertices.length);
 		
+		squareVertexPositionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
         squareVertexPositionBuffer.itemSize = 3;
         squareVertexPositionBuffer.numItems = gridstep*gridstep;
 		
+		squareVertexTextureCoordBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexTextureCoordBuffer);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
+        squareVertexTextureCoordBuffer.itemSize = 2;
+        squareVertexTextureCoordBuffer.numItems = gridstep*gridstep;
+		
 		squareVertexIndexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, squareVertexIndexBuffer);
-        
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(squareVertexIndices), gl.STATIC_DRAW);
         squareVertexIndexBuffer.itemSize = 1;
         squareVertexIndexBuffer.numItems = gridsize*gridsize*6;
@@ -174,6 +192,25 @@
 	function setupScene() {
 		gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
 		mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+	}
+	
+	function handleLoadedTexture(texture) {
+		gl.bindTexture(gl.TEXTURE_2D, texture);
+		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);		
+		gl.bindTexture(gl.TEXTURE_2D, null);
+	}
+	
+	var texture;
+	function initTexture() {
+		texture = gl.createTexture();
+		texture.image = new Image();
+		texture.image.onload = function() {
+		  handleLoadedTexture(texture)
+		}
+		texture.image.src = "img/HeightMapExample.jpg";
 	}
 	
 	function drawScene(frameTime) {
@@ -194,6 +231,13 @@
         gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
         gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, squareVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 		
+		gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexTextureCoordBuffer);
+        gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, squareVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		
+		gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.uniform1i(shaderProgram.samplerUniform, 0);
+		
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, squareVertexIndexBuffer);
 		
         setMatrixUniforms();
@@ -205,7 +249,8 @@
 		initGL(document.getElementById("mycanvas"));	//get ctx, set size
 		initShaders();
 		initBuffers();
-		gl.clearColor(0.0, 0.0, 0.0, 1.0);
+		initTexture();
+		gl.clearColor(0.0, 0.3, 0.3, 1.0);
         gl.enable(gl.DEPTH_TEST);
 		setupScene();
 		requestAnimationFrame(drawScene);
