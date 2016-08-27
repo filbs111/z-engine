@@ -118,11 +118,24 @@
     }
 
 	var squareVertexPositionBuffer, 
-		squareVertexTextureCoordBuffer;
+		squareVertexTextureCoordBuffer,
+		squareVertexIndexBuffer;
 
     function initBuffers() {
         squareVertexPositionBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
+		
+		//simplest implementation - maybe not the fastest.
+		//shared vertex for 4 terrain squares.
+		//use a texture with nearest lookup for colouring
+		//optiionally do 4 texture lookups to get interpolation
+		
+		//better implementation for interpolation might be to use more vertices
+		//also could use vertex colour with more vertices
+		
+		//zeewolf appears to allow square to be split along either diagonal
+		//not doing this now. go for simplest possible patchwork thing
+		
         vertices = [
              1.0,  1.0,  0.0,
             -1.0,  1.0,  0.0,
@@ -132,6 +145,16 @@
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
         squareVertexPositionBuffer.itemSize = 3;
         squareVertexPositionBuffer.numItems = 4;
+		
+		
+		squareVertexIndexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, squareVertexIndexBuffer);
+        var squareVertexIndices = [
+            0, 1, 2,      1, 2, 3,    // Front face
+        ];
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(squareVertexIndices), gl.STATIC_DRAW);
+        squareVertexIndexBuffer.itemSize = 1;
+        squareVertexIndexBuffer.numItems = 6;
     }
 	
 	function setupScene() {
@@ -153,8 +176,10 @@
         gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
         gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, squareVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 		
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, squareVertexIndexBuffer);
+		
         setMatrixUniforms();
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, squareVertexPositionBuffer.numItems);
+        gl.drawElements(gl.TRIANGLES, squareVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
     }
 	
 	function webGlStart(){
