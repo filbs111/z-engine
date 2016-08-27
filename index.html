@@ -130,6 +130,11 @@
 		squareVertexTextureCoordBuffer,
 		squareVertexIndexBuffer;
 
+	var vertices;	//keep around so can edit to update terrain
+	var textureCoords;
+	var gridsize = 15;
+	var gridstep = gridsize+1;
+	
     function initBuffers() {
         
 		
@@ -146,16 +151,14 @@
 		
        
 		//generate grid of points
-		var vertices = [];
+		vertices = [];
+		textureCoords = [];
 		var squareVertexIndices = [];
-		var textureCoords = [];
 		
-		var gridsize = 15;
-		var gridstep = gridsize+1;
 		for (var ii=0,idx=0;ii<gridstep;ii++){
 			for (var jj=0;jj<gridstep;jj++,idx++){
 				vertices = vertices.concat([ii*0.1,jj*0.1,0.0]);	//0.1*((ii+jj)%2)]);
-				textureCoords = textureCoords.concat([ii/256,jj/256]);
+				textureCoords = textureCoords.concat([jj/texsize,ii/texsize]);
 				//textureCoords = textureCoords.concat([0.0,0.0]);
 			}
 		}
@@ -194,23 +197,71 @@
 		mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
 	}
 	
+	var heightInfo = [];
 	function handleLoadedTexture(texture) {
 		gl.bindTexture(gl.TEXTURE_2D, texture);
-		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+		//gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);		
 		gl.bindTexture(gl.TEXTURE_2D, null);
+		
+		//load heightmap image data
+		var canvas = document.createElement('canvas');
+		var context = canvas.getContext('2d');
+		var img = texture.image;
+		var w = img.width;
+		var h = img.height;
+		canvas.width = w;
+		canvas.height = h;
+		context.drawImage(img, 0, 0 );
+		var myData = context.getImageData(0, 0, w, h).data;
+		//save this data into heightmap array
+		
+		var hmapidx=0;
+		for(var i = 0, n = myData.length; i < n; i += 4) {
+          heightInfo[hmapidx++] = myData[i];	//just use red
+        }
+		updateTerrain(0);
 	}
 	
 	var texture;
+	var texsize=64;
 	function initTexture() {
 		texture = gl.createTexture();
 		texture.image = new Image();
 		texture.image.onload = function() {
 		  handleLoadedTexture(texture)
 		}
-		texture.image.src = "img/HeightMapExample.jpg";
+		texture.image.src = "img/HeightMapExample64.jpg";
+	}
+	
+	function updateTerrain(xoffs){
+		for (var ii=0;ii<gridstep;ii++){
+			var hidx = ii*texsize + xoffs;	//won't handle wraparound properly
+			var idx = ii*gridstep*3 + 2;
+			var tidx = ii*gridstep*2;
+			for (var jj=0;jj<gridstep;jj++){
+				vertices[idx] = 0.005*heightInfo[hidx++];
+				idx+=3;
+				
+				textureCoords[tidx] = (jj+xoffs)/texsize;
+				tidx+=2;
+			}
+		}
+		
+		gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+		
+		gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexTextureCoordBuffer);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
+	}
+	
+	var terrainX=0;
+	function moveTerrain(movex){
+		//don't press before the texture is loaded!
+		terrainX+=movex;
+		updateTerrain(terrainX);
 	}
 	
 	function drawScene(frameTime) {
@@ -221,9 +272,8 @@
         mat4.identity(mvMatrix);
         mat4.translate(mvMatrix, [0.0, 0.0, -3.0]);
 		
-		//rotate by some amount related to current time.
-		mat4.rotateX(mvMatrix, -45);
-		mat4.rotateZ(mvMatrix, frameTime/2000);
+		mat4.rotateX(mvMatrix, -0.8);
+		//mat4.rotateZ(mvMatrix, frameTime/2000);
 		
 		mat4.translate(mvMatrix, [-0.75,-0.75,0]);
 
@@ -264,6 +314,8 @@
 <body onload="webGlStart()">
 
 <canvas id="mycanvas" width="500" height="500">CANVAS TO GO HERE</canvas>
+<button id="moveterrain" onclick="moveTerrain(1)">MOVE TERRAIN X+</button>
+<button id="moveterrain" onclick="moveTerrain(-1)">MOVE TERRAIN X-</button>
 
 
 </body>
