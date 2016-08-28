@@ -222,11 +222,12 @@
 		for(var i = 0, n = myData.length; i < n; i += 4) {
           heightInfo[hmapidx++] = myData[i];	//just use red
         }
-		updateTerrain(0);
+		updateTerrain(0,0);
 	}
 	
 	var texture;
 	var texsize=64;
+	var texsizesqm1 = texsize*texsize - 1;
 	function initTexture() {
 		texture = gl.createTexture();
 		texture.image = new Image();
@@ -236,17 +237,21 @@
 		texture.image.src = "img/HeightMapExample64.jpg";
 	}
 	
-	function updateTerrain(xoffs){
+	function updateTerrain(xoffs, yoffs){
 		for (var ii=0;ii<gridstep;ii++){
-			var hidx = ii*texsize + xoffs;	//won't handle wraparound properly
+			var hidx =  ( (ii+yoffs)*texsize + xoffs ) & texsizesqm1;
+				//TODO wrap x and y separately
 			var idx = ii*gridstep*3 + 2;
 			var tidx = ii*gridstep*2;
 			for (var jj=0;jj<gridstep;jj++){
 				vertices[idx] = 0.005*heightInfo[hidx++];
+				
+				hidx&=texsizesqm1;	//maybe a more efficient way to do this
+				
 				idx+=3;
 				
-				textureCoords[tidx] = (jj+xoffs)/texsize;
-				tidx+=2;
+				textureCoords[tidx++] = (jj+xoffs)/texsize;
+				textureCoords[tidx++] = (ii+yoffs)/texsize
 			}
 		}
 		
@@ -258,10 +263,12 @@
 	}
 	
 	var terrainX=0;
-	function moveTerrain(movex){
+	var terrainY=0;
+	function moveTerrain(movex, movey){
 		//don't press before the texture is loaded!
 		terrainX+=movex;
-		updateTerrain(terrainX);
+		terrainY+=movey;
+		updateTerrain(terrainX, terrainY);
 	}
 	
 	function drawScene(frameTime) {
@@ -314,9 +321,12 @@
 <body onload="webGlStart()">
 
 <canvas id="mycanvas" width="500" height="500">CANVAS TO GO HERE</canvas>
-<button id="moveterrain" onclick="moveTerrain(1)">MOVE TERRAIN X+</button>
-<button id="moveterrain" onclick="moveTerrain(-1)">MOVE TERRAIN X-</button>
-
+<br/>
+<button id="moveterrain" onclick="moveTerrain(1,0)">MOVE TERRAIN X+</button>
+<button id="moveterrain" onclick="moveTerrain(-1,0)">MOVE TERRAIN X-</button>
+<br/>
+<button id="moveterrain" onclick="moveTerrain(0,1)">MOVE TERRAIN Y+</button>
+<button id="moveterrain" onclick="moveTerrain(0,-1)">MOVE TERRAIN Y-</button>
 
 </body>
 </html>
