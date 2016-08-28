@@ -283,6 +283,9 @@
 		mat4.rotateX(mvMatrix, -0.8);
 		//mat4.rotateZ(mvMatrix, frameTime/2000);
 		
+		mat4.translate(mvMatrix, [-smoothmovey*0.1, -smoothmovex*0.1, 0.0]);
+		
+		
 		mat4.translate(mvMatrix, [-0.75,-0.75,0]);
 
 		
@@ -302,9 +305,20 @@
         gl.drawElements(gl.TRIANGLES, squareVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
     }
 	
-	var keyThing= myKeysStatesThing();	//thing to track key states
 	function webGlStart(){
+		console.log("will start web gl");
+		initGL(document.getElementById("mycanvas"));	//get ctx, set size
+		initShaders();
+		initBuffers();
+		initTexture();
+		gl.clearColor(0.0, 0.3, 0.3, 1.0);
+        gl.enable(gl.DEPTH_TEST);
+		setupScene();
+		requestAnimationFrame(drawScene);
+	}
 	
+	var keyThing= myKeysStatesThing();	//thing to track key states
+	function init(){
 		keyThing.setKeydownCallback(38,function(){
 			moveTerrain(1, 0);	//up
 		});
@@ -317,24 +331,51 @@
 		keyThing.setKeydownCallback(39,function(){
 			moveTerrain(0, 1);	//right
 		});
-	
-		console.log("will start web gl");
-		initGL(document.getElementById("mycanvas"));	//get ctx, set size
-		initShaders();
-		initBuffers();
-		initTexture();
-		gl.clearColor(0.0, 0.3, 0.3, 1.0);
-        gl.enable(gl.DEPTH_TEST);
-		setupScene();
-		requestAnimationFrame(drawScene);
+		
+		processInput();
+		
+		webGlStart();
 	}
 	
-	
+	var smoothmovex=0;
+	var smoothmovey=0;
+	var smoothmovevx=0;
+	var smoothmovevy=0;
+	function processInput(){
+		setTimeout(processInput, 20);	//~50hz
+		//console.log("will process input");
+
+		smoothmovevx*=0.95;
+		smoothmovevy*=0.95;
+		smoothmovevx+= 0.05*keyThing.keystate(87) - 0.05*keyThing.keystate(83);
+		smoothmovevy+= 0.05*keyThing.keystate(68) - 0.05*keyThing.keystate(65);
+
+		smoothmovex+=smoothmovevx;
+		smoothmovey+=smoothmovevy;
+
+		if 	(smoothmovex>1){
+			smoothmovex-=1;
+			moveTerrain(1, 0);
+		}
+		if 	(smoothmovex<0){
+			smoothmovex+=1;
+			moveTerrain(-1, 0);
+		}
+		if 	(smoothmovey>1){
+			smoothmovey-=1;
+			moveTerrain(0, 1);
+		}
+		if 	(smoothmovey<0){
+			smoothmovey+=1;
+			moveTerrain(0, -1);
+		}
+		
+	}
 	
 	</script>
 
 </head>
-<body onload="webGlStart()">
+<body onload="init()">
 
 <canvas id="mycanvas" width="500" height="500">CANVAS TO GO HERE</canvas>
 <br/>
