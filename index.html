@@ -5,7 +5,8 @@
 
 	<!-- might wish to either use more up to date glmatrix, or just use own thing since 2d-->
 	<script type="text/javascript" src="lib/glMatrix-0.9.5.min.js"></script>
-
+	<script type="text/javascript" src="utils/keys.js"></script>
+	
 	<!-- simple white colour pix shader -->
 	<script id="shader-fs" type="x-shader/x-fragment">
 		precision mediump float;
@@ -301,7 +302,22 @@
         gl.drawElements(gl.TRIANGLES, squareVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
     }
 	
+	var keyThing= myKeysStatesThing();	//thing to track key states
 	function webGlStart(){
+	
+		keyThing.setKeydownCallback(38,function(){
+			moveTerrain(1, 0);	//up
+		});
+		keyThing.setKeydownCallback(40,function(){
+			moveTerrain(-1, 0);	//down
+		});
+		keyThing.setKeydownCallback(37,function(){
+			moveTerrain(0, -1);	//left
+		});
+		keyThing.setKeydownCallback(39,function(){
+			moveTerrain(0, 1);	//right
+		});
+	
 		console.log("will start web gl");
 		initGL(document.getElementById("mycanvas"));	//get ctx, set size
 		initShaders();
