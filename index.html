@@ -203,8 +203,8 @@
 		gl.bindTexture(gl.TEXTURE_2D, texture);
 		//gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);		
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);		
 		gl.bindTexture(gl.TEXTURE_2D, null);
 		
 		//load heightmap image data
@@ -235,7 +235,8 @@
 		texture.image.onload = function() {
 		  handleLoadedTexture(texture)
 		}
-		texture.image.src = "img/HeightMapExample64.jpg";
+		//texture.image.src = "img/HeightMapExample64.jpg";
+		texture.image.src = "img/test2.bmp";
 	}
 	
 	function updateTerrain(xoffs, yoffs){
@@ -245,14 +246,14 @@
 			var idx = ii*gridstep*3 + 2;
 			var tidx = ii*gridstep*2;
 			for (var jj=0;jj<gridstep;jj++){
-				vertices[idx] = 0.005*heightInfo[hidx++];
+				vertices[idx] = 0.001*heightInfo[hidx++];
 				
 				hidx&=texsizesqm1;	//maybe a more efficient way to do this
 				
 				idx+=3;
 				
-				textureCoords[tidx++] = (jj+xoffs)/texsize;
-				textureCoords[tidx++] = (ii+yoffs)/texsize
+				textureCoords[tidx++] = (jj+xoffs +0.5)/texsize;	//0.5 for centre of pixel on grid point instead of grid square centre
+				textureCoords[tidx++] = (ii+yoffs +0.5)/texsize
 			}
 		}
 		
