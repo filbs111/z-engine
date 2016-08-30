@@ -195,7 +195,9 @@
 	
 	function setupScene() {
 		gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-		mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+		mat4.perspective(35, gl.viewportWidth / gl.viewportHeight, 1.4, 2.8, pMatrix);
+		//shift centre of perspective up
+		pMatrix[9]=-0.3;
 	}
 	
 	var heightInfo = [];
@@ -279,9 +281,9 @@
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         mat4.identity(mvMatrix);
-        mat4.translate(mvMatrix, [0.0, 0.0, -3.0]);
+        mat4.translate(mvMatrix, [0.0, -0.5, -2.15]);
 		
-		mat4.rotateX(mvMatrix, -0.8);
+		mat4.rotateX(mvMatrix, -Math.PI*0.5);
 		//mat4.rotateZ(mvMatrix, frameTime/2000);
 		
 		mat4.translate(mvMatrix, [-smoothmovey*0.1, -smoothmovex*0.1, 0.0]);
@@ -378,7 +380,7 @@
 </head>
 <body onload="init()">
 
-<canvas id="mycanvas" width="500" height="500">CANVAS TO GO HERE</canvas>
+<canvas id="mycanvas" width="640" height="480">CANVAS TO GO HERE</canvas>
 <br/>
 <button id="moveterrain" onclick="moveTerrain(1,0)">MOVE TERRAIN X+</button>
 <button id="moveterrain" onclick="moveTerrain(-1,0)">MOVE TERRAIN X-</button>
