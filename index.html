@@ -7,7 +7,28 @@
 	<script type="text/javascript" src="lib/glMatrix-0.9.5.min.js"></script>
 	<script type="text/javascript" src="utils/keys.js"></script>
 	
-	<!-- simple white colour pix shader -->
+	<!-- invisible pix shader -->
+	<script id="shader-invis-fs" type="x-shader/x-fragment">
+		precision mediump float;
+		void main(void) {
+			gl_FragColor = vec4(0.0, 0.3, 0.3, 1.0);
+		}
+	</script>
+	
+	<!-- vertex shader -->
+	<script id="shader-untextured-vs" type="x-shader/x-vertex">
+		attribute vec3 aVertexPosition;
+
+		uniform mat4 uMVMatrix;
+		uniform mat4 uPMatrix;
+		
+		void main(void) {
+			gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+		}
+	</script>
+	
+	
+	<!-- simple texture mapped pix shader -->
 	<script id="shader-fs" type="x-shader/x-fragment">
 		precision mediump float;
 		
@@ -16,7 +37,6 @@
 
 		void main(void) {
 			gl_FragColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
-			//gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
 		}
 	</script>
 
@@ -90,13 +110,26 @@
     }
 
 	
-	var shaderProgram;
+	var shaderProgramTextured;
+	var shaderProgramInvis;
+	
+	function initShaders(){
+		shaderProgramTextured = loadShader( "shader-vs", "shader-fs",{
+						attributes:["aVertexPosition","aTextureCoord"],
+						uniforms:["uPMatrix","uMVMatrix","uSampler"]
+						});
+		shaderProgramInvis = loadShader("shader-untextured-vs", "shader-invis-fs",{
+						attributes:["aVertexPosition"],
+						uniforms:["uPMatrix","uMVMatrix"]
+						});
+	}
+	
+	//shader loader function.
+    function loadShader(vs_id,fs_id, obj) {
+        var fragmentShader = getShader(gl, vs_id);		//TODO check whether shader already got
+        var vertexShader = getShader(gl, fs_id);
 
-    function initShaders() {
-        var fragmentShader = getShader(gl, "shader-fs");
-        var vertexShader = getShader(gl, "shader-vs");
-
-        shaderProgram = gl.createProgram();
+        var shaderProgram = gl.createProgram();
         gl.attachShader(shaderProgram, vertexShader);
         gl.attachShader(shaderProgram, fragmentShader);
         gl.linkProgram(shaderProgram);
@@ -105,27 +138,35 @@
             alert("Could not initialise shaders");
         }
 
-        gl.useProgram(shaderProgram);
-
-        shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
-        gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
-
-		shaderProgram.textureCoordAttribute = gl.getAttribLocation(shaderProgram, "aTextureCoord");
-        gl.enableVertexAttribArray(shaderProgram.textureCoordAttribute);
+		shaderProgram.uniforms={};
+		shaderProgram.attributes={};
+		progUniforms = shaderProgram.uniforms;
+		progAttributes = shaderProgram.attributes;
 		
-		//maybe don't need all these uniforms for 2d / ortho projection...
-        shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
-        shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
-		shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
+		obj.attributes.forEach(function(item, index){
+			progAttributes[item] = gl.getAttribLocation(shaderProgram, item);
+			gl.enableVertexAttribArray(progAttributes[item]);
+		});
+		obj.uniforms.forEach(function(item, index){
+			progUniforms[item] = gl.getUniformLocation(shaderProgram, item);
+		});
+
+		return shaderProgram;
     }
 	
 	var mvMatrix = mat4.create();
     var pMatrix = mat4.create();
 
     function setMatrixUniforms() {
-        gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
-        gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
+        gl.uniformMatrix4fv(shaderProgramTextured.uniforms.uPMatrix, false, pMatrix);
+        gl.uniformMatrix4fv(shaderProgramTextured.uniforms.uMVMatrix, false, mvMatrix);
     }
+	
+	function setMatrixUniforms2() {
+		gl.uniformMatrix4fv(shaderProgramInvis.uniforms.uPMatrix, false, pMatrix);
+        gl.uniformMatrix4fv(shaderProgramInvis.uniforms.uMVMatrix, false, mvMatrix);
+    }
+	
 
 	var squareVertexPositionBuffer, 
 		squareVertexTextureCoordBuffer,
@@ -135,6 +176,14 @@
 	var textureCoords;
 	var gridsize = 15;
 	var gridstep = gridsize+1;
+	
+	
+	//vars for another mesh (level bounding side planes)
+	
+	var sidePlanesVertexPositionBuffer,
+		sidePlanesVertexIndexBuffer;
+		
+	
 	
     function initBuffers() {
         
@@ -191,11 +240,46 @@
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(squareVertexIndices), gl.STATIC_DRAW);
         squareVertexIndexBuffer.itemSize = 1;
         squareVertexIndexBuffer.numItems = gridsize*gridsize*6;
+		
+		
+		
+		//another set of buffers (level bounding side planes)
+		var walltop=2;
+		var wallbottom=0;
+		var wallsize = 1.4;
+		var tmpVerts = [
+			wallsize,wallsize,wallbottom,
+			wallsize,-wallsize,wallbottom,
+			wallsize,wallsize,walltop,
+			wallsize,-wallsize,walltop,
+			
+			0,wallsize,wallbottom,
+			0,-wallsize,wallbottom,
+			0,wallsize,walltop,
+			0,-wallsize,walltop
+		];
+		var tmpIdxs = [
+			0,1,2, 1,2,3,
+			4,5,6, 5,6,7
+		];
+		
+		sidePlanesVertexPositionBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, sidePlanesVertexPositionBuffer);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tmpVerts), gl.STATIC_DRAW);
+		sidePlanesVertexPositionBuffer.itemSize = 3;
+        sidePlanesVertexPositionBuffer.numItems = 8;
+		
+		sidePlanesVertexIndexBuffer =  gl.createBuffer();
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sidePlanesVertexIndexBuffer);
+		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(tmpIdxs), gl.STATIC_DRAW);
+		sidePlanesVertexIndexBuffer.itemSize = 1;
+        sidePlanesVertexIndexBuffer.numItems = 12;
     }
 	
 	function setupScene() {
 		gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
 		mat4.perspective(35, gl.viewportWidth / gl.viewportHeight, 1.4, 2.8, pMatrix);
+		//mat4.perspective(35, gl.viewportWidth / gl.viewportHeight, 0.1, 100, pMatrix);
 		//shift centre of perspective up
 		pMatrix[9]=-0.3;
 	}
@@ -286,26 +370,41 @@
 		mat4.rotateX(mvMatrix, -Math.PI*0.5);
 		//mat4.rotateZ(mvMatrix, frameTime/2000);
 		
-		mat4.translate(mvMatrix, [-smoothmovey*0.1, -smoothmovex*0.1, 0.0]);
-		
-		
 		mat4.translate(mvMatrix, [-0.75,-0.75,0]);
 
+		if (document.getElementById("walls").checked){
+			//draw another set of buffers (level bounding side planes)
+			gl.useProgram(shaderProgramInvis);
+			gl.bindBuffer(gl.ARRAY_BUFFER, sidePlanesVertexPositionBuffer);
+			gl.vertexAttribPointer(shaderProgramInvis.attributes.aVertexPosition, sidePlanesVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sidePlanesVertexIndexBuffer);
+			setMatrixUniforms2();
+
+			//note this gives "Error: WebGL: drawElements: no VBO bound to enabled vertex attrib index 1!"
+			//but not obvious how to fix. other shader uses more buffers. maybe something is left over from that on the
+			//gl context of something. frustrating.
+			gl.drawElements(gl.TRIANGLES, sidePlanesVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+		}
+		
+		mat4.translate(mvMatrix, [-smoothmovey*0.1, -smoothmovex*0.1, 0.0]);
+		
+		gl.useProgram(shaderProgramTextured);
 		
         gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
-        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, squareVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        gl.vertexAttribPointer(shaderProgramTextured.attributes.aVertexPosition, squareVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 		
 		gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexTextureCoordBuffer);
-        gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, squareVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        gl.vertexAttribPointer(shaderProgramTextured.attributes.aTextureCoord, squareVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
 		
 		gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, texture);
-        gl.uniform1i(shaderProgram.samplerUniform, 0);
+        gl.uniform1i(shaderProgramTextured.uniforms.uSampler, 0);
 		
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, squareVertexIndexBuffer);
 		
         setMatrixUniforms();
         gl.drawElements(gl.TRIANGLES, squareVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+		
     }
 	
 	function webGlStart(){
@@ -387,6 +486,8 @@
 <br/>
 <button id="moveterrain" onclick="moveTerrain(0,1)">MOVE TERRAIN Y+</button>
 <button id="moveterrain" onclick="moveTerrain(0,-1)">MOVE TERRAIN Y-</button>
+
+<input type="checkbox" id="walls">show walls</input>
 
 </body>
 </html>
