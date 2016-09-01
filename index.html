@@ -11,7 +11,7 @@
 	<script id="shader-invis-fs" type="x-shader/x-fragment">
 		precision mediump float;
 		void main(void) {
-			gl_FragColor = vec4(0.0, 0.1, 0.1, 1.0);
+			gl_FragColor = vec4(0.0, 1.0, 0.1, 1.0);
 		}
 	</script>
 	
@@ -183,7 +183,8 @@
 	var sidePlanesVertexPositionBuffer,
 		sidePlanesVertexIndexBuffer;
 		
-	
+	var playerBoxVertexPositionBuffer,
+		playerBoxVertexIndexBuffer;
 	
     function initBuffers() {
         
@@ -274,6 +275,41 @@
 		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(tmpIdxs), gl.STATIC_DRAW);
 		sidePlanesVertexIndexBuffer.itemSize = 1;
         sidePlanesVertexIndexBuffer.numItems = 12;
+		
+		
+		//player object - a simple box
+		var pboxx=0.1;
+		var pboxy=0.1;
+		var pboxz=0.05;
+		tmpVerts = [
+			pboxx, pboxy, pboxz,
+			pboxx, pboxy, -pboxz,
+			pboxx, -pboxy, pboxz,
+			pboxx, -pboxy, -pboxz,
+			-pboxx, pboxy, pboxz,
+			-pboxx, pboxy, -pboxz,
+			-pboxx, -pboxy, pboxz,
+			-pboxx, -pboxy, -pboxz
+		]
+		tmpIdxs = [
+			0,2,1, 1,2,3,
+			0,4,2, 2,4,6,
+			2,6,7, 2,7,3,
+			0,1,4, 1,5,4,
+			1,3,7, 1,7,5,
+			4,5,7, 4,7,6
+		]
+		playerBoxVertexPositionBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, playerBoxVertexPositionBuffer);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tmpVerts), gl.STATIC_DRAW);
+		playerBoxVertexPositionBuffer.itemSize = 3;
+        playerBoxVertexPositionBuffer.numItems = 8;
+		
+		playerBoxVertexIndexBuffer =  gl.createBuffer();
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, playerBoxVertexIndexBuffer);
+		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(tmpIdxs), gl.STATIC_DRAW);
+		playerBoxVertexIndexBuffer.itemSize = 1;
+        playerBoxVertexIndexBuffer.numItems = 36;
     }
 	
 	function setupScene() {
@@ -408,13 +444,27 @@
 		
         setMatrixUniforms();
         gl.drawElements(gl.TRIANGLES, squareVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+			//reverse last translation. this is not efficient!
+		mat4.translate(mvMatrix, [smoothmovey*0.1, smoothmovex*0.1, 0.0]);
+
+		mat4.translate(mvMatrix, [0.75, 0.75, 0.4]);
+		mat4.rotateZ(mvMatrix, frameTime/2000);
+
+		//draw player box
+		gl.useProgram(shaderProgramInvis);
+		gl.bindBuffer(gl.ARRAY_BUFFER, playerBoxVertexPositionBuffer);
+		gl.vertexAttribPointer(shaderProgramInvis.attributes.aVertexPosition, playerBoxVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, playerBoxVertexIndexBuffer);
+		setMatrixUniforms2();
+		gl.drawElements(gl.TRIANGLES, playerBoxVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 		
     }
 	
 	function webGlStart(){
 		console.log("will start web gl");
 		initGL(document.getElementById("mycanvas"));	//get ctx, set size
-		gl.enable(gl.CULL_FACE);
+		//gl.enable(gl.CULL_FACE);
 		initShaders();
 		initBuffers();
 		initTexture();
