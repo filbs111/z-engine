@@ -11,7 +11,7 @@
 	<script id="shader-invis-fs" type="x-shader/x-fragment">
 		precision mediump float;
 		void main(void) {
-			gl_FragColor = vec4(0.0, 0.3, 0.3, 1.0);
+			gl_FragColor = vec4(0.0, 0.1, 0.1, 1.0);
 		}
 	</script>
 	
@@ -36,7 +36,7 @@
 		uniform sampler2D uSampler;
 
 		void main(void) {
-			gl_FragColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+			gl_FragColor = vec4(0.0, 0.2, 0.3, 1.0) + vec4(0.9, 0.4, 0.0, 1.0) * texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
 		}
 	</script>
 
@@ -322,8 +322,8 @@
 		texture.image.onload = function() {
 		  handleLoadedTexture(texture)
 		}
-		//texture.image.src = "img/HeightMapExample64.jpg";
-		texture.image.src = "img/test2.bmp";
+		texture.image.src = "img/HeightMapExample64.jpg";
+		//texture.image.src = "img/test2.bmp";
 	}
 	
 	function updateTerrain(xoffs, yoffs){
@@ -418,7 +418,7 @@
 		initShaders();
 		initBuffers();
 		initTexture();
-		gl.clearColor(0.0, 0.3, 0.3, 1.0);
+		gl.clearColor(0.0, 0.1, 0.1, 1.0);
         gl.enable(gl.DEPTH_TEST);
 		setupScene();
 		requestAnimationFrame(drawScene);
