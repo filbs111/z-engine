@@ -313,7 +313,8 @@
 	}
 	
 	var texture;
-	var texsize=64;
+	var texsize=64;	//should be power of 2 for & maths to work
+	var texsizem1=texsize -1;
 	var texsizesqm1 = texsize*texsize - 1;
 	function initTexture() {
 		texture = gl.createTexture();
@@ -327,15 +328,16 @@
 	
 	function updateTerrain(xoffs, yoffs){
 		for (var ii=0;ii<gridstep;ii++){
-			var hidx =  ( (ii+yoffs)*texsize + xoffs ) & texsizesqm1;
+			//var hidx =  ( (ii+yoffs)*texsize + xoffs ) & texsizesqm1;
 				//TODO wrap x and y separately
 			var idx = ii*gridstep*3 + 2;
 			var tidx = ii*gridstep*2;
+			
+			var hidx_ipart =  ((ii+yoffs)&texsizem1)*texsize;
+			
 			for (var jj=0;jj<gridstep;jj++){
-				vertices[idx] = 0.001*heightInfo[hidx++];
-				
-				hidx&=texsizesqm1;	//maybe a more efficient way to do this
-				
+				var hidx = hidx_ipart + ( (jj+xoffs)&texsizem1 );
+				vertices[idx] = 0.001*heightInfo[ hidx ];
 				idx+=3;
 				
 				textureCoords[tidx++] = (jj+xoffs +0.5)/texsize;	//0.5 for centre of pixel on grid point instead of grid square centre
@@ -356,6 +358,8 @@
 		//don't press before the texture is loaded!
 		terrainX+=movex;
 		terrainY+=movey;
+		terrainX &= texsizem1;
+		terrainY &= texsizem1;
 		updateTerrain(terrainX, terrainY);
 	}
 	
