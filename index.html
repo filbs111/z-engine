@@ -11,15 +11,10 @@
 	<script id="shader-normals-fs" type="x-shader/x-fragment">
 		precision mediump float;
 
-		varying vec3 vNormal;
+		varying vec3 vLighting;
 	
 		void main(void) {
-			vec3 lightDir = vec3(0,0,1);
-			vec3 lightColor = vec3(0.5,0.5,0.3);
-			vec3 ambLightColor = vec3(0.2,0.4,0.5);
-		
-			gl_FragColor = vec4( ambLightColor + lightColor*dot(vNormal,lightDir) ,  1.0);
-			//gl_FragColor = vec4( vNormal ,  1.0);
+			gl_FragColor = vec4( vLighting ,  1.0);
 			//gl_FragColor = vec4( 1.1,0.1,0.1 ,  1.0);
 		}
 	</script>
@@ -30,12 +25,28 @@
 		
 		uniform mat4 uMVMatrix;
 		uniform mat4 uPMatrix;
+		uniform mat3 uNMatrix;
 		
-		varying vec3 vNormal;
+		varying vec3 vLighting;
 
 		void main(void) {
+			vec3 transformedNormal;
+			vec3 lightDir = vec3(0.0,1.0,0.0);
+			float lAmount;
+			//vec3 lightColor = vec3(0.5,-0.5,0.5);
+			//vec3 ambLightColor = vec3(0.5,0.5,0.5);
+				
 			gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
-			vNormal = aNormal;
+			
+			//rotate normals. (note could just rotate light direction. not sure if would actually
+			//be more efficient since shader compiler may do same optimisation...)
+			
+			//transformedNormal = aNormal;	//temp
+			transformedNormal = uNMatrix*aNormal;
+			lAmount = 0.05*dot(transformedNormal,lightDir) + 0.5;	//0.05 is likely because box is scaled
+			
+			vLighting = vec3( lAmount,lAmount,lAmount);
+
 		}
 	</script>
 	
@@ -156,7 +167,7 @@
 						});
 		shaderProgramNormals = loadShader("shader-normals-vs", "shader-normals-fs",{
 						attributes:["aVertexPosition","aNormal"],
-						uniforms:["uPMatrix","uMVMatrix"]
+						uniforms:["uPMatrix","uMVMatrix","uNMatrix"]
 						});
 	}
 	
@@ -192,6 +203,7 @@
 	
 	var mvMatrix = mat4.create();
     var pMatrix = mat4.create();
+    var nMatrix = mat3.create();
 
     function setMatrixUniforms() {
         gl.uniformMatrix4fv(shaderProgramTextured.uniforms.uPMatrix, false, pMatrix);
@@ -204,6 +216,11 @@
 	function setMatrixUniforms3() {
 		gl.uniformMatrix4fv(shaderProgramNormals.uniforms.uPMatrix, false, pMatrix);
         gl.uniformMatrix4fv(shaderProgramNormals.uniforms.uMVMatrix, false, mvMatrix);
+		
+		//from webgl lessons number 7!
+		mat4.toInverseMat3(mvMatrix, nMatrix);
+        mat3.transpose(nMatrix);
+		gl.uniformMatrix3fv(shaderProgramNormals.uniforms.uNMatrix, false, nMatrix);
     }
 
 	var squareVertexPositionBuffer, 
@@ -404,6 +421,11 @@
 		//mat4.perspective(55, gl.viewportWidth / gl.viewportHeight, 0.1, 100, pMatrix);
 		//shift centre of perspective up
 		pMatrix[9]=-0.3;
+		
+		//normal matrix set identity.
+		nMatrix[0]=1;
+		nMatrix[4]=1;
+		nMatrix[8]=1;
 	}
 	
 	var heightInfo = [];
