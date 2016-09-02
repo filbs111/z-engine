@@ -7,14 +7,46 @@
 	<script type="text/javascript" src="lib/glMatrix-0.9.5.min.js"></script>
 	<script type="text/javascript" src="utils/keys.js"></script>
 	
+	<!-- normals pix shader -->
+	<script id="shader-normals-fs" type="x-shader/x-fragment">
+		precision mediump float;
+
+		varying vec3 vNormal;
+	
+		void main(void) {
+			vec3 lightDir = vec3(0,0,1);
+			vec3 lightColor = vec3(0.5,0.5,0.3);
+			vec3 ambLightColor = vec3(0.2,0.4,0.5);
+		
+			gl_FragColor = vec4( ambLightColor + lightColor*dot(vNormal,lightDir) ,  1.0);
+			//gl_FragColor = vec4( vNormal ,  1.0);
+			//gl_FragColor = vec4( 1.1,0.1,0.1 ,  1.0);
+		}
+	</script>
+	<!-- vertex shader -->
+	<script id="shader-normals-vs" type="x-shader/x-vertex">
+		attribute vec3 aVertexPosition;
+		attribute vec3 aNormal;
+		
+		uniform mat4 uMVMatrix;
+		uniform mat4 uPMatrix;
+		
+		varying vec3 vNormal;
+
+		void main(void) {
+			gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+			vNormal = aNormal;
+		}
+	</script>
+	
+	
 	<!-- invisible pix shader -->
 	<script id="shader-invis-fs" type="x-shader/x-fragment">
 		precision mediump float;
 		void main(void) {
-			gl_FragColor = vec4(0.0, 1.0, 0.1, 1.0);
+			gl_FragColor = vec4(0.0, 0.1, 0.1, 1.0);
 		}
 	</script>
-	
 	<!-- vertex shader -->
 	<script id="shader-untextured-vs" type="x-shader/x-vertex">
 		attribute vec3 aVertexPosition;
@@ -122,6 +154,10 @@
 						attributes:["aVertexPosition"],
 						uniforms:["uPMatrix","uMVMatrix"]
 						});
+		shaderProgramNormals = loadShader("shader-normals-vs", "shader-normals-fs",{
+						attributes:["aVertexPosition","aNormal"],
+						uniforms:["uPMatrix","uMVMatrix"]
+						});
 	}
 	
 	//shader loader function.
@@ -161,12 +197,14 @@
         gl.uniformMatrix4fv(shaderProgramTextured.uniforms.uPMatrix, false, pMatrix);
         gl.uniformMatrix4fv(shaderProgramTextured.uniforms.uMVMatrix, false, mvMatrix);
     }
-	
 	function setMatrixUniforms2() {
 		gl.uniformMatrix4fv(shaderProgramInvis.uniforms.uPMatrix, false, pMatrix);
         gl.uniformMatrix4fv(shaderProgramInvis.uniforms.uMVMatrix, false, mvMatrix);
     }
-	
+	function setMatrixUniforms3() {
+		gl.uniformMatrix4fv(shaderProgramNormals.uniforms.uPMatrix, false, pMatrix);
+        gl.uniformMatrix4fv(shaderProgramNormals.uniforms.uMVMatrix, false, mvMatrix);
+    }
 
 	var squareVertexPositionBuffer, 
 		squareVertexTextureCoordBuffer,
@@ -184,6 +222,7 @@
 		sidePlanesVertexIndexBuffer;
 		
 	var playerBoxVertexPositionBuffer,
+		playerBoxVertexNormalBuffer,
 		playerBoxVertexIndexBuffer;
 	
     function initBuffers() {
@@ -315,6 +354,23 @@
 		  -1.0,  1.0,  1.0,
 		  -1.0,  1.0, -1.0,
 		];
+		
+		var tmpNorms = [
+			[0,0,1],
+			[0,0,-1],
+			[0,1,0],
+			[0,-1,0],
+			[1,0,0],
+			[-1,0,0]
+		]
+		//expand norms to have 4 copies of each.
+		var unpackedNorms = [];
+		for (var i in tmpNorms) {
+		  var norm = tmpNorms[i];
+		  for (var j=0; j < 4; j++) {
+			unpackedNorms = unpackedNorms.concat(norm);
+		  }
+		}
 		tmpIdxs = [
 		  0, 1, 2,      0, 2, 3,    // Front face
 		  4, 5, 6,      4, 6, 7,    // Back face
@@ -327,7 +383,13 @@
 		gl.bindBuffer(gl.ARRAY_BUFFER, playerBoxVertexPositionBuffer);
 		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tmpVerts), gl.STATIC_DRAW);
 		playerBoxVertexPositionBuffer.itemSize = 3;
-        playerBoxVertexPositionBuffer.numItems = 8;
+        playerBoxVertexPositionBuffer.numItems = 24;
+		
+		playerBoxVertexNormalBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, playerBoxVertexNormalBuffer);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(unpackedNorms), gl.STATIC_DRAW);
+		playerBoxVertexNormalBuffer.itemSize = 3;
+        playerBoxVertexNormalBuffer.numItems = 24;
 		
 		playerBoxVertexIndexBuffer =  gl.createBuffer();
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, playerBoxVertexIndexBuffer);
@@ -429,7 +491,7 @@
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         mat4.identity(mvMatrix);
-        mat4.translate(mvMatrix, [0.0, -0.5, -2.15]);
+        mat4.translate(mvMatrix, [0.0, -0.5, -2.1]);
 		
 		mat4.rotateX(mvMatrix, -Math.PI*0.5);
 		//mat4.rotateX(mvMatrix, -1);
@@ -476,14 +538,20 @@
 
 		mat4.translate(mvMatrix, [0.7, 0.7, 0.4]);
 		mat4.rotateZ(mvMatrix, frameTime/2000);
+		mat4.rotateX(mvMatrix, frameTime/500);
 		mat4.scale(mvMatrix, [0.1,0.1,0.05]);
 		
+		
 		//draw player box
-		gl.useProgram(shaderProgramInvis);
+		gl.useProgram(shaderProgramNormals);
 		gl.bindBuffer(gl.ARRAY_BUFFER, playerBoxVertexPositionBuffer);
-		gl.vertexAttribPointer(shaderProgramInvis.attributes.aVertexPosition, playerBoxVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		gl.vertexAttribPointer(shaderProgramNormals.attributes.aVertexPosition, playerBoxVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		
+		gl.bindBuffer(gl.ARRAY_BUFFER, playerBoxVertexNormalBuffer);
+		gl.vertexAttribPointer(shaderProgramNormals.attributes.aNormal, playerBoxVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, playerBoxVertexIndexBuffer);
-		setMatrixUniforms2();
+		setMatrixUniforms3();
 		gl.drawElements(gl.TRIANGLES, playerBoxVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 		
     }
